@@ -1,0 +1,2 @@
+# XabiGameNet
+تکنلوجیا
