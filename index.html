@@ -1,137 +1,238 @@
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, CallbackContext
-import random
-import json
-import os
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+<meta charset="UTF-8">
+<title>Mine Legends Ultimate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-# ذخیره داده‌های بازیکن
-if os.path.exists("players.json"):
-    with open("players.json", "r", encoding="utf-8") as f:
-        players = json.load(f)
-else:
-    players = {}
+<style>
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #020617;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+.app {
+  width: 100%;
+  max-width: 400px;
+  background: #0f172a;
+  border-radius: 20px;
+  padding: 14px;
+}
+.stats {
+  display: flex;
+  justify-content: space-between;
+  background: #020617;
+  padding: 10px;
+  border-radius: 12px;
+}
+.char {
+  text-align: center;
+  font-size: 48px;
+  margin-top: 6px;
+}
+.mine {
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: radial-gradient(#22c55e,#166534);
+  margin: 12px auto;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 44px;
+  cursor: pointer;
+}
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.tabs button {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 6px;
+  background: #1e293b;
+  color: white;
+}
+.box {
+  display: none;
+  margin-top: 8px;
+}
+.box.active {
+  display: block;
+}
+.card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 10px;
+  margin-bottom: 6px;
+}
+button {
+  border: none;
+  border-radius: 10px;
+  padding: 6px;
+  background: #38bdf8;
+  width: 100%;
+  cursor: pointer;
+}
+.skin {
+  background: #020617;
+  border-radius: 8px;
+  padding: 6px;
+  margin-top: 4px;
+  cursor: pointer;
+}
+.active {
+  background: #22c55e;
+  color: black;
+}
+.log {
+  text-align: center;
+  font-size: 13px;
+  opacity: 0.8;
+}
+</style>
+</head>
 
-# ======== منوی اصلی ========
-def start(update: Update, context: CallbackContext):
-    user = update.effective_user
-    if str(user.id) not in players:
-        players[str(user.id)] = {"coins":0, "level":1, "skin":"👷", "power":1}
-        save_players()
-    
-    update.message.reply_text(
-        f"سلام {user.first_name}! ⛏️ خوش اومدی به بازی ماینر!",
-        reply_markup=main_menu()
-    )
+<body>
+<div class="app">
+<h3 style="text-align:center">⛏ Mine Legends Ultimate</h3>
 
-def main_menu():
-    keyboard = [
-        [InlineKeyboardButton("⛏️ ماین کن", callback_data="mine"),
-         InlineKeyboardButton("🛒 شاپ", callback_data="shop")],
-        [InlineKeyboardButton("🏆 لیدربورد", callback_data="leaderboard"),
-         InlineKeyboardButton("📊 وضعیت", callback_data="status")]
-    ]
-    return InlineKeyboardMarkup(keyboard)
+<div class="stats">
+  <div>💰 <span id="coin">0</span></div>
+  <div>⭐ Lv <span id="level">1</span></div>
+</div>
 
-# ======== ماینینگ ========
-def mine(update: Update, context: CallbackContext):
-    query = update.callback_query
-    user_id = str(query.from_user.id)
-    query.answer()
+<div class="char" id="char">👷</div>
+<div class="mine" onclick="mine()" id="pick">⛏</div>
 
-    power = players[user_id]["power"]
-    coins_earned = random.randint(1,5) * power
-    players[user_id]["coins"] += coins_earned
-    save_players()
+<div class="tabs">
+  <button onclick="tab('up')">⬆️</button>
+  <button onclick="tab('quest')">📜</button>
+  <button onclick="tab('item')">💎</button>
+  <button onclick="tab('skin')">🎨</button>
+  <button onclick="tab('rank')">🏆</button>
+</div>
 
-    query.edit_message_text(
-        text=f"{players[user_id]['skin']} شما ماین کردید و {coins_earned} سکه گرفتید!\nکل سکه‌ها: {players[user_id]['coins']}",
-        reply_markup=main_menu()
-    )
+<!-- UPGRADES -->
+<div id="up" class="box active">
+  <div class="card">
+    Power: <span id="power">1</span>
+    <button onclick="upgrade()">Upgrade (<span id="pCost">10</span>)</button>
+  </div>
+  <div class="card">Auto Mine
+    <button onclick="auto()">Buy (<span id="aCost">50</span>)</button>
+  </div>
+</div>
 
-# ======== شاپ ========
-shop_items = {
-    "🛠️ ابزار قوی": {"price":50, "power":2},
-    "💎 ابزار فوق‌العاده": {"price":200, "power":5},
-    "👷 اسکین جدید": {"price":100, "skin":"🧑‍🏭"}
+<!-- QUESTS -->
+<div id="quest" class="box">
+  <div class="card">Mine 100 <button onclick="quest(100,150)">Claim</button></div>
+  <div class="card">Mine 500 <button onclick="quest(500,400)">Claim</button></div>
+  <div class="card">Reach Lv 5 <button onclick="questLevel(5,500)">Claim</button></div>
+  <div class="card">Mine 1000 <button onclick="quest(1000,1000)">Claim</button></div>
+</div>
+
+<!-- ITEMS -->
+<div id="item" class="box">
+  <div class="card">⚡ Booster (200) <button onclick="booster()">Use</button></div>
+  <div class="card">🧿 Relic (500) <button onclick="relic()">Buy</button></div>
+</div>
+
+<!-- SKINS -->
+<div id="skin" class="box">
+  <div class="card">
+    <b>👷 Character</b>
+    <div class="skin active" onclick="setChar('👷',this)">👷 Miner</div>
+    <div class="skin" onclick="buyChar('🧑‍🚀',300,this)">🧑‍🚀 Astronaut (300)</div>
+    <div class="skin" onclick="buyChar('🧙‍♂️',600,this)">🧙‍♂️ Wizard (600)</div>
+    <div class="skin" onclick="buyChar('🤖',900,this)">🤖 Robot (900)</div>
+    <div class="skin" onclick="buyChar('🧛‍♂️',1200,this)">🧛‍♂️ Vampire (1200)</div>
+  </div>
+  <div class="card">
+    <b>⛏ Pickaxe</b>
+    <div class="skin active" onclick="setPick('⛏',this)">⛏ Default</div>
+    <div class="skin" onclick="buyPick('💎',400,this)">💎 Diamond (400)</div>
+    <div class="skin" onclick="buyPick('🔥',700,this)">🔥 Fire (700)</div>
+    <div class="skin" onclick="buyPick('⚡',1000,this)">⚡ Electric (1000)</div>
+    <div class="skin" onclick="buyPick('👑',1500,this)">👑 Crown (1500)</div>
+  </div>
+</div>
+
+<!-- RANK -->
+<div id="rank" class="box">
+  <div class="card">
+    👤 <span id="pname"></span><br>
+    🏆 Best Coin: <span id="best">0</span>
+  </div>
+</div>
+
+<div class="log" id="log">Ready</div>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp; tg.ready(); tg.expand();
+const beep = f => {let a=new AudioContext(), o=a.createOscillator(); o.frequency.value=f; o.connect(a.destination); o.start(); setTimeout(()=>o.stop(),80)};
+
+let d = JSON.parse(localStorage.getItem("mineLegend")) || {
+  coin:0, power:1, level:1, xp:0, pCost:10, aCost:50, best:0,
+  name: prompt("اسم پلیر؟") || "Miner",
+  char: "👷", pick: "⛏",
+  chars: ["👷"], picks: ["⛏"]
+};
+
+let autoInt = null;
+
+function mine(){
+  let gain = d.power;
+  d.coin += gain; d.xp += gain;
+  if(d.xp >= d.level*20){d.level++; d.xp = 0; beep(700);}
+  beep(300); save();
 }
 
-def shop(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    keyboard = [[InlineKeyboardButton(f"{item} - {info['price']} سکه", callback_data=f"buy_{item}")] for item, info in shop_items.items()]
-    query.edit_message_text("🛒 شاپ ماینر:", reply_markup=InlineKeyboardMarkup(keyboard))
+function upgrade(){
+  if(d.coin >= d.pCost){ d.coin -= d.pCost; d.power++; d.pCost *= 2; beep(500); save();}
+}
 
-def buy(update: Update, context: CallbackContext):
-    query = update.callback_query
-    user_id = str(query.from_user.id)
-    query.answer()
-    item_name = query.data.split("_",1)[1]
-    item = shop_items[item_name]
+function auto(){
+  if(d.coin >= d.aCost && !autoInt){ d.coin -= d.aCost;
+    autoInt = setInterval(()=>{d.coin += d.power; save();},1500); save();
+  }
+}
 
-    if players[user_id]["coins"] >= item["price"]:
-        players[user_id]["coins"] -= item["price"]
-        if "power" in item:
-            players[user_id]["power"] = item["power"]
-        if "skin" in item:
-            players[user_id]["skin"] = item["skin"]
-        save_players()
-        text = f"خرید موفق! 🎉 {item_name} به شما اضافه شد."
-    else:
-        text = "❌ سکه کافی نیست."
+function quest(c,r){if(d.coin>=c){d.coin += r; beep(800); save();}}
+function questLevel(l,r){if(d.level>=l){d.coin += r; save();}}
+function booster(){if(d.coin>=200){d.coin-=200; d.power*=2; setTimeout(()=>{d.power/=2; save()},30000); save();}}
+function relic(){if(d.coin>=500){d.coin-=500; d.power++; save();}}
 
-    query.edit_message_text(text=text, reply_markup=main_menu())
+function buyChar(c,price,el){if(d.coin>=price && !d.chars.includes(c)){d.coin-=price; d.chars.push(c); setChar(c,el); save();}}
+function setChar(c,el){d.char=c; char.innerText=c; document.querySelectorAll("#skin .card:nth-child(1) .skin").forEach(x=>x.classList.remove("active")); el.classList.add("active");}
 
-# ======== لیدربورد ========
-def leaderboard(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    top_players = sorted(players.items(), key=lambda x: x[1]["coins"], reverse=True)[:10]
-    text = "🏆 لیدربورد جهانی:\n"
-    for i, (uid, data) in enumerate(top_players,1):
-        text += f"{i}. {data['skin']} {uid} - {data['coins']} سکه\n"
-    query.edit_message_text(text=text, reply_markup=main_menu())
+function buyPick(p,price,el){if(d.coin>=price && !d.picks.includes(p)){d.coin-=price; d.picks.push(p); setPick(p,el); save();}}
+function setPick(p,el){d.pick=p; pick.innerText=p; document.querySelectorAll("#skin .card:nth-child(2) .skin").forEach(x=>x.classList.remove("active")); el.classList.add("active");}
 
-# ======== نمایش وضعیت ========
-def status(update: Update, context: CallbackContext):
-    query = update.callback_query
-    query.answer()
-    user_id = str(query.from_user.id)
-    data = players[user_id]
-    query.edit_message_text(
-        f"👤 شما: {data['skin']}\nسطح: {data['level']}\nقدرت: {data['power']}\nسکه‌ها: {data['coins']}",
-        reply_markup=main_menu()
-    )
+function tab(id){document.querySelectorAll(".box").forEach(b=>b.classList.remove("active")); document.getElementById(id).classList.add("active");}
+function save(){d.best = Math.max(d.best,d.coin); localStorage.setItem("mineLegend",JSON.stringify(d));
+  coin.innerText=d.coin; power.innerText=d.power; level.innerText=d.level; pCost.innerText=d.pCost; aCost.innerText=d.aCost;
+  best.innerText=d.best; pname.innerText=d.name; char.innerText=d.char; pick.innerText=d.pick;
+}
 
-# ======== ذخیره داده‌ها ========
-def save_players():
-    with open("players.json", "w", encoding="utf-8") as f:
-        json.dump(players, f, ensure_ascii=False, indent=4)
-
-# ======== هندلر دکمه‌ها ========
-def button(update: Update, context: CallbackContext):
-    query = update.callback_query
-    data = query.data
-    if data == "mine":
-        mine(update, context)
-    elif data == "shop":
-        shop(update, context)
-    elif data.startswith("buy_"):
-        buy(update, context)
-    elif data == "leaderboard":
-        leaderboard(update, context)
-    elif data == "status":
-        status(update, context)
-
-# ======== main ========
-def main():
-    updater = Updater("YOUR_BOT_TOKEN", use_context=True)
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CallbackQueryHandler(button))
-
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == "__main__":
-    main()
+save();
+</script>
+</body>
+</html><button onclick="tab('contact')">📩 Contact</button><!-- CONTACT -->
+<div id="contact" class="box">
+  <div class="card">
+    📨 ارتباط با سازنده:<br>
+    <button onclick="window.open('https://t.me/ImMr_Mmd','_blank')">
+      📱 پیام به @ImMr_Mmd
+    </button>
+  </div>
+</div>
